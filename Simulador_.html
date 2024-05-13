@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reacciones Nucleares</title>
+  <script src="TablaPeriodica.js"></script>
+  <script src="TablaPeriodica2.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif
+    }
+
+    #contenedorNotacion {
+      background-color: rgba(27, 149, 248, 0.979);
+      box-shadow: 0px 2px 16px black;
+    }
+
+    #contenedorInstruccion {
+      background-color: rgb(255, 255, 255);
+    }
+
+    #ecuacion {
+      background-color: rgb(255, 255, 255);
+      flex-direction: row;
+      display: flex;
+    }
+
+    table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        th, td {
+            border: 1px solid #dddddd;
+            text-align: left;
+            padding: 8px;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+
+    #footer {
+      background-color: rgb(154, 169, 218);
+    }
+
+    .contenedorMiembros {
+        position: relative;
+    }
+    
+    .span1, .span2 {
+        position: relative;
+        top: 0;
+        left: 0;
+    }
+    
+    .span2 {
+    top: 0px; 
+    text-align: center;
+    }
+
+    input, select {
+      width: 3em;
+      border-radius: 5px;
+    }
+
+    .chemical-equation {
+    font-size: 24px; 
+    line-height: 1.5; 
+    }
+
+    .superscript {
+        font-size: 15px;
+        position: relative;
+        left: 0.49em; 
+    }
+
+    .subscript {
+        font-size: 15px;
+    }
+
+    caption{
+      font-size: 0.9em;
+    }
+
+    .rojo {
+      color: red;
+    }
+
+    .entradas {
+      margin-right: 20px;
+    }
+
+    .filaFinalTabla{
+      text-align: center;
+    }
+
+  </style>
+  <script>
+    var salida;
+    var animacionActiva = false; 
+
+    function prepararInicio (){
+      salida = document.getElementById("salida");
+      var boton = document.getElementById("calcular");
+      var mensajeInstrucciones = document.getElementById("mensajeInstrucciones");
+      boton.addEventListener("click",iniciar,false);
+    }
+
+    function iniciar() {
+    mensajeInstrucciones.innerHTML = "";
+    salida.innerHTML = "";
+    var entrada1 = document.getElementById("entrada1");
+    var isotopo1 = document.getElementById("isotopo1");
+    var entrada2 = document.getElementById("entrada2");
+    var entrada3 = document.getElementById("entrada3");
+    var entrada4 = document.getElementById("entrada4");
+    var isotopo4 = document.getElementById("isotopo4");
+
+    var indiceFaltante = -1;
+    var cantidadIndicesFaltantes = 0;
+    var entradas = [
+        { nombre: entrada1.value },
+        { nombre: entrada2.value },
+        { nombre: entrada3.value },
+        { nombre: entrada4.value }
+    ];
+    for (let indice = 0; indice <= 3; indice++) {
+        if (entradas[indice].nombre !== "") {
+            switch (indice) {
+                case 0:
+                    entradas[indice].N = TablaPeriodica.encontrarElementoPorNombreYN(entradas[indice].nombre, isotopo1.value);
+                    entradas[indice].Z = TablaPeriodica.obtenerZ(entradas[indice].nombre);
+                    break;
+                case 3:
+                    entradas[indice].N = TablaPeriodica.encontrarElementoPorNombreYN(entradas[indice].nombre, isotopo4.value);
+                    entradas[indice].Z = TablaPeriodica.obtenerZ(entradas[indice].nombre);
+                    break;
+                case 1:
+                case 2:
+                    entradas[indice].N = TablaPeriodica2.obtenerN(entradas[indice].nombre);
+                    entradas[indice].Z = TablaPeriodica2.obtenerZ(entradas[indice].nombre);
+                    break;
+            }
+            if(entradas[indice].N == null || entradas[indice].Z == null){
+              salida.innerHTML = "Los elementos o números másicos ingresados son incorrectos o inexistentes, los elementos ingresados deben ser en notación de símbolos";
+              return;
+            }
+          }
+            
+        else {
+            indiceFaltante = indice;
+            cantidadIndicesFaltantes++;
+        }
+    }
+
+    if (cantidadIndicesFaltantes == 1) {
+        if (estimarEntrada(entradas, indiceFaltante)) {
+            salida.innerHTML = "Se ha estimado el elemento o partícula faltante en la ecuación <span class = 'rojo'>(" + entradas[indiceFaltante].nombre + ")</span>. ";
+        }else{
+          salida.innerHTML = "El elemento faltante no puede estimarse. Ningun elemento satisface la ecuación correctamente";
+          return;
+        }
+    } else if (cantidadIndicesFaltantes > 1) {
+        salida.innerHTML = "Demasiadas entradas faltantes (Debe haber por lo menos 3 entradas para proceder)";
+        return; 
+    }
+    main(entradas);
+}
+
+
+    function main (entradas){ //a esta funcion deben llegar los objetos con las entradas (no importa si los datos no coinciden entre sí), asi que esto no se valida
+      var color;
+      var tipoReaccion = document.getElementById("tipoReaccion");
+      renderizarEcuacion(entradas);
+      if(verificarIgualdad(entradas)){ //Simplemente informa al usuario si la ecuacion es valida (siempre sera valida si el valor es correctamente estimado (si no lo es, el código termina antes), regresa true si sí está balanceada)
+        salida.innerHTML += "La ecuación es correcta.";
+      }else{
+        salida.innerHTML = "La ecuación ingresada no es correcta, no se cumplen los principios de las reacciones nucleares";
+      }
+      var energiaTotal = crearTabla(entradas);
+      if (energiaTotal > 0){ //regresa true si la energiaTotal es mayor a 0;
+        color = true;
+        iniciarAnimacion(color);
+        tipoReaccion.innerHTML = "Reacción Exotérmica";
+        tipoReaccion.style.color = "Red";
+      }else if(energiaTotal < 0){
+        color = false;
+        iniciarAnimacion(color);
+        tipoReaccion.innerHTML = "Reacción Endotérmica";
+        tipoReaccion.style.color = "Blue";
+      }else{
+        tipoReaccion.innerHTML = "Neutra en energía";
+      }
+    }
+
+    function iniciarAnimacion(color) {
+      if (!animacionActiva) {
+        animacionActiva = true;
+        realizarAnimacion(color);
+        
+        setTimeout(detenerAnimacion, 1000); //La animacion se detiene tras 5s, 5000 ms
+      }
+    }
+
+    function detenerAnimacion() {
+      animacionActiva = false;
+    }
+
+    function realizarAnimacion(color) {
+      var canvas = document.getElementById('Animacion');
+      var ctx = canvas.getContext('2d');
+
+      var atom = {
+        nucleusRadius: 8,
+        orbitRadius: 50,
+        numElectrons: 4,
+        electronSpeed: 0.05,
+        electronAngle: 0
+      };
+
+      function drawAtom() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        ctx.beginPath();
+        ctx.arc(canvas.width / 2, canvas.height / 2, atom.nucleusRadius * 3, 0, Math.PI * 2);
+        if (color) {
+          ctx.fillStyle = 'yellow'; 
+        } else {
+          ctx.fillStyle = 'blue'; 
+        }
+        ctx.fill();
+
+        ctx.strokeStyle = 'black';
+        for (var i = 0; i < atom.numElectrons; i++) {
+          ctx.beginPath();
+          ctx.arc(canvas.width / 2, canvas.height / 2, atom.orbitRadius + i * 10, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        for (var i = 0; i < atom.numElectrons; i++) {
+          var angle = atom.electronAngle + (Math.PI * 2 / atom.numElectrons) * i;
+          var electronX = canvas.width / 2 + Math.cos(angle) * (atom.orbitRadius + i * 10);
+          var electronY = canvas.height / 2 + Math.sin(angle) * (atom.orbitRadius + i * 10);
+
+          ctx.beginPath();
+          ctx.arc(electronX, electronY, 3, 0, Math.PI * 2);
+          ctx.fillStyle = 'blue';
+          ctx.fill();
+        }
+
+        atom.electronAngle += atom.electronSpeed;
+
+        if (animacionActiva) {
+          requestAnimationFrame(drawAtom);
+        }
+      }
+
+      drawAtom();
+    }
+    function verificarIgualdad(entradas){
+      return (
+    (Math.round(entradas[0].N) + Math.round(entradas[1].N) === Math.round(entradas[2].N) + Math.round(entradas[3].N)) &&
+    (Math.round(entradas[0].Z) + Math.round(entradas[1].Z) === Math.round(entradas[2].Z) + Math.round(entradas[3].Z))
+    );
+    }
+
+    function crearTabla(entradas) {
+    var nucleoides = ["Blanco", "Bala", "Partícula Producto", "Nuevo Producto"];
+    var energiaActual;
+    var energiaTotal = 0;
+    var tabla = '<br><table border="1">';
+    tabla += '<tr><th colspan="2">Elementos/Partículas y sus valores de Q (En U.M.A)</th></tr>';
+    for (var i = 0; i <= 3; i++) {
+        switch(i){
+          case 0:
+          energiaActual = entradas[0].N;
+          energiaTotal += energiaActual;
+          break;
+          case 1: 
+          energiaActual = entradas[1].N;
+          energiaTotal += energiaActual;
+          break;
+          case 2:
+          energiaActual = -1 * entradas[2].N;
+          energiaTotal += energiaActual;
+          break;
+          case 3:  
+          energiaActual = -1 * entradas[3].N;
+          energiaTotal += energiaActual;
+          break;
+        }
+        if (i == 2 || i == 3){
+          energiaActual *= -1; 
+        }
+        tabla += '<tr>';
+        tabla += '<td>' + nucleoides[i] + '</td>';
+        tabla += '<td>' + energiaActual + '</td>';
+        tabla += '</tr>';
+
+    }
+    energiaTotal = energiaTotal.toFixed(6);
+    tabla += `<tr><th class = "filaFinalTabla" colspan="2">Energía total liberada: ${energiaTotal} </th></tr>`;
+    tabla += '</table>';
+    document.getElementById('tablaEnergias').innerHTML = tabla;
+    return energiaTotal;
+}
+
+
+    function estimarEntrada(entradas,indiceFaltante){
+      var Nfaltante;
+      var Zfaltante;
+      var elementoFaltante;
+      
+      switch(indiceFaltante){
+        case 0:
+          Nfaltante = Math.round(entradas[2].N) + entradas[3].N - entradas[1].N;
+          Zfaltante = entradas[2].Z + entradas[3].Z - entradas[1].Z;
+          elementoFaltante = TablaPeriodica.obtenerNombre(Math.round(Nfaltante),Math.round(Zfaltante));
+          break;
+        case 3:
+          Nfaltante = entradas[0].N + entradas[1].N - entradas[2].N;
+          Zfaltante = entradas[0].Z + entradas[1].Z - entradas[2].Z;
+          elementoFaltante = TablaPeriodica.obtenerNombre(Math.round(Nfaltante),Math.round(Zfaltante));
+          break;       
+        case 1:
+          Nfaltante = entradas[2].N + entradas[3].N - entradas[0].N;
+          Zfaltante = entradas[2].Z + entradas[3].Z - entradas[0].Z;
+          elementoFaltante = TablaPeriodica2.obtenerNombre(Math.round(Nfaltante),Math.round(Zfaltante));
+          break;
+        case 2:
+          Nfaltante = entradas[1].N + entradas[0].N - entradas[3].N;
+          Zfaltante = entradas[1].Z + entradas[0].Z - entradas[3].Z;
+          elementoFaltante = TablaPeriodica2.obtenerNombre(Math.round(Nfaltante),Math.round(Zfaltante));
+          break;
+      } 
+
+      if (elementoFaltante != null){
+        if(indiceFaltante == 0 || indiceFaltante == 3){ 
+        entradas[indiceFaltante].N = TablaPeriodica.encontrarElementoPorNombreYN(elementoFaltante,Math.round(Nfaltante));
+        entradas[indiceFaltante].Z = Zfaltante;
+        entradas[indiceFaltante].nombre = elementoFaltante;
+        }else{
+          entradas[indiceFaltante].N = TablaPeriodica2.obtenerN(elementoFaltante);
+          entradas[indiceFaltante].Z = Zfaltante;
+          entradas[indiceFaltante].nombre = elementoFaltante;
+        }
+        return true; //esto no es un error, si la llamada regresa true,se termina en "iniciar"
+      }else{
+        return false;
+      }
+    }
+
+    function renderizarEcuacion(entradas) {
+    var n0 = document.getElementById("n1");
+    var z0 = document.getElementById("z1");
+    var elemento0 = document.getElementById("elemento1");
+    var n1 = document.getElementById("n2");
+    var z1 = document.getElementById("z2");
+    var elemento1 = document.getElementById("elemento2");
+    var n2 = document.getElementById("n3");
+    var z2 = document.getElementById("z3");
+    var elemento2 = document.getElementById("elemento3");
+    var n3 = document.getElementById("n4");
+    var z3 = document.getElementById("z4");
+    var elemento3 = document.getElementById("elemento4");
+    n0.innerHTML = "2";
+    for (let contador = 0; contador <= 3; contador++) {
+        switch (contador) { //Las cases están ordenadas según como aparecen en el HTML
+            case 1:
+                n0.innerHTML = Math.round(entradas[contador].N);
+                z0.innerHTML = Math.round(entradas[contador].Z);
+                elemento0.innerHTML = TablaPeriodica2.obtenerSimbolo(entradas[contador].nombre);
+                break;
+            case 0:
+                n1.innerHTML = Math.round(entradas[contador].N);
+                z1.innerHTML = Math.round(entradas[contador].Z);
+                elemento1.innerHTML = entradas[contador].nombre;
+                break;
+            case 2:
+                n2.innerHTML = Math.round(entradas[contador].N);
+                z2.innerHTML = Math.round(entradas[contador].Z);
+                elemento2.innerHTML = TablaPeriodica2.obtenerSimbolo(entradas[contador].nombre);
+                break;
+            case 3:
+                n3.innerHTML = Math.round(entradas[contador].N);
+                z3.innerHTML = Math.round(entradas[contador].Z);
+                elemento3.innerHTML = entradas[contador].nombre;
+                break;
+        }
+    }
+}
+
+    window.addEventListener("DOMContentLoaded", prepararInicio, false);
+  </script>
+</head>
+<body>
+  <div id="contenedorNotacion" style="height: 100px; display: flex; justify-content: center; align-items: center; position: relative; color: white; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif">
+    <div style="display: flex; flex-direction: column;"> 
+      <div class="contenedor">
+        <label for="entrada1">Blanco/Número másico:</label>
+        <input id = "entrada1" type="text">
+        / <input class = "entradas" type="number" id= "isotopo1">
+        <label  for="entrada2"> Bala:</label>
+        <select class = "entradas" id="entrada2">
+          <option value="">vacío</option>
+          <option value="Proton">&#x03c1;</option>
+          <option value="Deuteron">&#x03b4;</option>
+          <option value="Tritio">&#x03c4;</option>
+          <option value="ParticulaAlfa">&#x03b1;</option>
+          <option value="Neutron">&#x03b7;</option>
+        </select>
+        
+        <label for="entrada3">Partícula Producto:</label>
+        <select class = "entradas" id="entrada3">
+            <option value="">vacío</option>
+            <option value="Proton">&#x03c1;</option>
+            <option value="Deuteron">&#x03b4;</option>
+            <option value="Tritio">&#x03c4;</option>
+            <option value="ParticulaAlfa">&#x03b1;</option>
+            <option value="Neutron">&#x03b7;</option>
+        </select>
+        <label for="edad">Nuevo Núcleo/Número másico:</label>
+        <input id = "entrada4" type="text">
+        / <input id = "isotopo4" type="number">
+      </div>
+      <p style="text-align: center; margin: 2px;">
+        <input id = "calcular" type="button" style="width: 6em; background-color: white; border-radius: 5px;" value="Calcular">
+      </p>
+    </div>
+  </div>
+  <div id="contenedorInstruccion" style="height: 50px; z-index: 1;">
+    <h2 id = "salida" style="text-align: center;">
+
+    </h2>
+  </div>
+  <br>
+  <div id="contenedorEcuacion" style="height: 300px; z-index: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+    <div id="ecuacion" style="font-size: 2em;">
+      <div class="chemical-equation" style="height: 25px;">
+        <sup id="n1" class="superscript">1</sup><sub id="z1" class="subscript">1</sub><span id="elemento1">H</span> +
+        <sup id="n2" class="superscript">4</sup><sub id="z2" class="subscript">2</sub><span id="elemento2">He</span> →
+        <sup id="n3" class="superscript">1</sup><sub id="z3" class="subscript">1</sub><span id="elemento3">H</span> +
+        <sup id="n4" class="superscript">4</sup><sub id="z4" class="subscript">2</sub><span id="elemento4">He</span>
+      </div>
+    </div>
+    <br>
+    <div id="tablaEnergias">
+      
+    </div>    
+  </div>
+  
+  <div id="contenedorRecurso" style="height: 300px; display: flex; justify-content: center;">
+    <div> 
+      <span id = "mensajeInstrucciones">Instrucciones de uso 
+      <ul>
+        <li>Al presionar "Calcular", el simulador requerirá de las 4 entradas (Bala, Blanco, Partícula producto, Nuevo Núcleo) para realizar la simulación. Opcionalmente, pueden ingresarse solo 3 entradas y el elemento faltante puede ser determinado automaticamente por el simulador, pero si falta más de una entrada el simulador no puede proceder.</li>
+        <li>En "Blanco" y "Nuevo Núcleo" deben ingresarse los elementos en su notación de símbolo químico, seguido de su número másico (A) en su entrada "Número másico" respectiva (este valor únicamente es usado para identificar al isótopo del elemento ingresado y no es usado en los cálculos). Ejemplo: N/16, esta entrada se refiere al isótopo 16 del nitrógeno (Nitrógeno-16). </li>
+      </ul>
+      <br>
+      Funcionalidades
+      <ul>
+        <li>Se muestra un resumen de las valores de Q en la reacción.</li>
+        <li>Un Elemento/Particula en la reacción puede ser estimado por el simulador si se omite o falta en las entradas (Ya sea la Bala, Blanco, Nuevo Núcleo o Partícula producto).
+          Por ejemplo, pruebe ingresar las siguientes entradas: 
+          <ul>
+            <li> <strong> Blanco/Número másico: </strong>  Cl/36  <strong> Bala: </strong> &#x03c4; <strong> Partícula Producto: </strong> vacío <strong> Nuevo Núcleo: </strong> S/35</li>
+            <li> <strong> Blanco/Número másico: </strong>  N/15  <strong> Bala: </strong> &#x03c1; <strong> Partícula Producto: </strong> &#x03b7; <strong> Nuevo Núcleo: </strong> vacío <em>(dejar en blanco)</em></li>
+          </ul> 
+
+        </li>
+        <li>Se muestra el tipo de reacción.</li>
+      </ul>
+      </span>
+      <canvas alt = "Modelo átomico" width = "400px" height = "200px" id = "Animacion"></canvas> 
+      <p style="text-align: center; margin: 20px;">
+        <span style = "font-size: 2em;" id = "tipoReaccion"></span>
+      </p>
+    </div>
+  </div>
+</body>
+</html>
